@@ -93,13 +93,36 @@
                         </div>
                         <div>
                             <label class="text-sm text-gray-400 mb-1 block">Card Types</label>
-                            <select id="gl-types" multiple class="w-full rounded-lg px-3 py-2 text-sm h-20">
-                                <option value="visa" selected>Visa</option>
-                                <option value="mastercard" selected>Mastercard</option>
-                                <option value="amex">Amex</option>
-                                <option value="jcb">JCB</option>
-                                <option value="unionpay">UnionPay</option>
-                            </select>
+                            <div id="gl-types" class="flex flex-wrap gap-2">
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="visa" checked class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 Visa</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="mastercard" checked class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 Mastercard</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="amex" class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 Amex</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="discover" class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 Discover</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="jcb" class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 JCB</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="unionpay" class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 UnionPay</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" value="diners" class="accent-bg rounded">
+                                    <span class="text-sm text-gray-300">💳 Diners</span>
+                                </label>
+                            </div>
                         </div>
                         <button id="gl-btn" onclick="generateAndCheck()" class="w-full accent-bg text-white rounded-lg py-2.5 font-medium text-sm hover:opacity-90 transition">
                             ⚡ Generate + Check Live
@@ -533,7 +556,7 @@
         const binsStr = document.getElementById('gl-bins').value.trim();
         const bins = binsStr ? binsStr.split(',').map(b => b.trim()).filter(Boolean) : null;
         const typesSelect = document.getElementById('gl-types');
-        const types = Array.from(typesSelect.selectedOptions).map(o => o.value);
+        const types = Array.from(typesSelect.querySelectorAll('input:checked')).map(el => el.value);
         
         const btn = document.getElementById('gl-btn');
         btn.disabled = true;
