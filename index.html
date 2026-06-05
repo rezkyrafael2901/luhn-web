@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luhn Generator v3.4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #0a0a0f; color: #e2e8f0; font-family: 'Inter', -apple-system, sans-serif; }
+        .bg-primary { background: #0a0a0f; }
+        .bg-secondary { background: #12121a; }
+        .bg-tertiary { background: #1a1a2e; }
+        .bg-card { background: #16162a; border: 1px solid #2a2a4a; }
+        .bg-card:hover { border-color: #6366f1; }
+        .accent { color: #818cf8; }
+        .accent-bg { background: #6366f1; }
+        .accent-bg:hover { background: #4f46e5; }
+        .glow { box-shadow: 0 0 20px rgba(99,102,241,0.15); }
+        textarea { background: #0f0f1a; border: 1px solid #2a2a4a; color: #e2e8f0; font-family: 'JetBrains Mono', monospace; }
+        textarea:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+        select, input { background: #0f0f1a; border: 1px solid #2a2a4a; color: #e2e8f0; }
+        select:focus, input:focus { outline: none; border-color: #6366f1; }
+        .tab { padding: 8px 20px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .tab:hover { color: #818cf8; }
+        .tab.active { color: #818cf8; border-bottom-color: #6366f1; }
+        .card-row { padding: 12px 16px; border-bottom: 1px solid #1a1a2e; transition: background 0.15s; }
+        .card-row:hover { background: #1a1a2e; }
+        .badge { padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+        .badge-live { background: #064e3b; color: #6ee7b7; }
+        .badge-die { background: #7f1d1d; color: #fca5a5; }
+        .badge-unknown { background: #78350f; color: #fcd34d; }
+        .copy-btn { cursor: pointer; padding: 4px 12px; border-radius: 6px; background: #1e1e3a; border: 1px solid #2a2a4a; color: #818cf8; font-size: 12px; transition: all 0.15s; }
+        .copy-btn:hover { background: #2a2a4a; }
+        .copy-btn.copied { background: #064e3b; color: #6ee7b7; border-color: #064e3b; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.8s linear infinite; }
+        .grid-bg { background-image: linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px); background-size: 50px 50px; }
+    </style>
+</head>
+<body class="grid-bg min-h-screen">
+    <!-- Header -->
+    <header class="border-b border-gray-800 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg accent-bg flex items-center justify-center text-white font-bold text-sm">L</div>
+                <h1 class="text-lg font-bold text-white">Luhn Generator <span class="accent text-sm">v3.4</span></h1>
+            </div>
+            <div class="flex items-center gap-4 text-sm text-gray-400">
+                <span id="stats-display">—</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-6xl mx-auto px-6 py-8">
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-6 border-b border-gray-800">
+            <div class="tab active" data-tab="generate" onclick="switchTab('generate')">⚡ Generate</div>
+            <div class="tab" data-tab="enrich" onclick="switchTab('enrich')">🔄 Enrich</div>
+            <div class="tab" data-tab="lookup" onclick="switchTab('lookup')">🔍 BIN Lookup</div>
+            <div class="tab" data-tab="format" onclick="switchTab('format')">🏪 Format</div>
+            <div class="tab" data-tab="tracker" onclick="switchTab('tracker')">📊 Tracker</div>
+        </div>
+
+        <!-- Generate Tab -->
+        <div id="tab-generate" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Controls -->
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">Generate Cards</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Count</label>
+                            <input id="gen-count" type="number" value="10" min="1" max="500" class="w-full rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Custom BINs (comma-separated)</label>
+                            <input id="gen-bins" type="text" placeholder="515000, 525000, 400344" class="w-full rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Card Types</label>
+                            <select id="gen-types" multiple class="w-full rounded-lg px-3 py-2 text-sm h-28">
+                                <option value="visa" selected>Visa</option>
+                                <option value="mastercard" selected>Mastercard</option>
+                                <option value="amex">Amex</option>
+                                <option value="discover">Discover</option>
+                                <option value="jcb">JCB</option>
+                                <option value="unionpay">UnionPay</option>
+                            </select>
+                        </div>
+                        <button onclick="generateCards()" class="w-full accent-bg text-white rounded-lg py-2.5 font-medium text-sm hover:opacity-90 transition">
+                            ⚡ Generate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div class="lg:col-span-2 bg-card rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-white font-semibold">Results</h2>
+                        <div class="flex gap-2">
+                            <button onclick="copyPipe()" class="copy-btn" id="copy-pipe-btn">📋 Copy Pipe</button>
+                            <button onclick="copyJSON()" class="copy-btn" id="copy-json-btn">{ } Copy JSON</button>
+                        </div>
+                    </div>
+                    <div id="gen-results" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Click Generate to create cards</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enrich Tab -->
+        <div id="tab-enrich" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">Enrich Cards</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Cards (pipe-delimited, one per line)</label>
+                            <textarea id="enrich-input" rows="10" class="w-full rounded-lg px-3 py-2 text-sm font-mono" placeholder="5150002791221529|01|2029|215&#10;5250003014805063|10|2028|238"></textarea>
+                        </div>
+                        <button onclick="enrichCards()" class="w-full accent-bg text-white rounded-lg py-2.5 font-medium text-sm">
+                            🔄 Enrich
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-card rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-white font-semibold">Enriched Results</h2>
+                        <button onclick="copyEnriched()" class="copy-btn" id="copy-enrich-btn">📋 Copy</button>
+                    </div>
+                    <div id="enrich-results" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Paste cards and click Enrich</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lookup Tab -->
+        <div id="tab-lookup" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">BIN Lookup</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">BIN Numbers (comma-separated)</label>
+                            <input id="lookup-bins" type="text" placeholder="400344, 515000, 6233586370" class="w-full rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <button onclick="lookupBins()" class="w-full accent-bg text-white rounded-lg py-2.5 font-medium text-sm">
+                            🔍 Lookup
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">BIN Info</h2>
+                    <div id="lookup-results" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Enter BIN numbers and click Lookup</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Format Tab -->
+        <div id="tab-format" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">Site-Specific Format</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Cards (pipe-delimited, one per line)</label>
+                            <textarea id="format-input" rows="6" class="w-full rounded-lg px-3 py-2 text-sm font-mono" placeholder="5150002791221529|01|2029|215"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Target Site</label>
+                            <select id="format-site" class="w-full rounded-lg px-3 py-2 text-sm">
+                                <option value="stripe">Stripe</option>
+                                <option value="shopify">Shopify</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="generic">Generic</option>
+                            </select>
+                        </div>
+                        <button onclick="formatCards()" class="w-full accent-bg text-white rounded-lg py-2.5 font-medium text-sm">
+                            🏪 Format
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-card rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-white font-semibold">Formatted Output</h2>
+                        <button onclick="copyFormatted()" class="copy-btn" id="copy-format-btn">📋 Copy</button>
+                    </div>
+                    <div id="format-results" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Paste cards and select a site</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tracker Tab -->
+        <div id="tab-tracker" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">📊 Live Card Tracker</h2>
+                    <div id="tracker-stats" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Loading...</div>
+                    </div>
+                </div>
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">🎯 BIN Recommendations</h2>
+                    <div id="tracker-recs" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">No data yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // State
+    let lastGenCards = [];
+    let lastEnrichCards = [];
+    let lastFormatCards = [];
+
+    // Tab switching
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById(`tab-${tab}`).classList.remove('hidden');
+        if (tab === 'tracker') loadTracker();
+    }
+
+    // API calls
+    async function api(url, body = null) {
+        const opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+        const res = await fetch(url, opts);
+        return res.json();
+    }
+
+    // Generate
+    async function generateCards() {
+        const count = parseInt(document.getElementById('gen-count').value) || 10;
+        const binsStr = document.getElementById('gen-bins').value.trim();
+        const bins = binsStr ? binsStr.split(',').map(b => b.trim()).filter(Boolean) : null;
+        const typesSelect = document.getElementById('gen-types');
+        const types = Array.from(typesSelect.selectedOptions).map(o => o.value);
+
+        document.getElementById('gen-results').innerHTML = '<div class="text-center py-12"><svg class="spinner inline w-6 h-6 accent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="60" stroke-dashoffset="20"/></svg></div>';
+
+        const data = await api('/api/generate', { count, bins, types: types.length ? types : null });
+        lastGenCards = data.cards;
+
+        let html = `<div class="mb-3 text-xs text-gray-500">${data.count} cards generated</div>`;
+        html += '<div class="space-y-1 max-h-[500px] overflow-y-auto">';
+        
+        data.cards.forEach((c, i) => {
+            const addr = c.billing_address || {};
+            const flag = getFlag(addr.country || 'US');
+            html += `
+            <div class="card-row rounded-lg">
+                <div class="flex items-center justify-between">
+                    <code class="text-indigo-300 font-mono text-xs">${c.raw_number}|${c.expiry.split('/')[0]}|${c.expiry.split('/')[1]}|${c.cvv}</code>
+                    <span class="text-xs text-gray-500">${c.type}</span>
+                </div>
+                <div class="mt-1 text-xs text-gray-400">
+                    ${flag} <span class="text-gray-300">${c.name}</span> · ${c.phone || '—'} · ${addr.street || ''}, ${addr.city || ''} ${addr.state || ''} ${addr.zip || ''}
+                </div>
+                <div class="mt-0.5 text-xs text-gray-500">
+                    BIN: ${c.bin} · ${c.type} · ${addr.country || '—'}
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        document.getElementById('gen-results').innerHTML = html;
+    }
+
+    // Enrich
+    async function enrichCards() {
+        const input = document.getElementById('enrich-input').value.trim();
+        if (!input) return;
+        const cards = input.split('\n').map(l => l.trim()).filter(Boolean);
+
+        document.getElementById('enrich-results').innerHTML = '<div class="text-center py-12"><svg class="spinner inline w-6 h-6 accent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="60" stroke-dashoffset="20"/></svg></div>';
+
+        const data = await api('/api/enrich', { cards });
+        lastEnrichCards = data.cards;
+
+        let html = `<div class="mb-3 text-xs text-gray-500">${data.count} cards enriched</div>`;
+        html += '<div class="space-y-1 max-h-[500px] overflow-y-auto">';
+        
+        data.cards.forEach((c, i) => {
+            if (c.error) {
+                html += `<div class="card-row rounded-lg text-red-400">Error: ${c.error}</div>`;
+                return;
+            }
+            const addr = c.billing_address || {};
+            const flag = getFlag(c.country_code || addr.country || 'US');
+            html += `
+            <div class="card-row rounded-lg">
+                <div class="flex items-center justify-between">
+                    <code class="text-indigo-300 font-mono text-xs">${c.raw_number}|${(c.expiry||'12/2028').split('/')[0]}|${(c.expiry||'12/2028').split('/')[1]}|${c.cvv||'000'}</code>
+                </div>
+                <div class="mt-1 text-xs text-gray-400">
+                    ${flag} <span class="text-gray-300">${c.name}</span> · ${c.phone || '—'} · ${addr.street || ''}, ${addr.city || ''} ${addr.state || ''} ${addr.zip || ''}
+                </div>
+                <div class="mt-0.5 text-xs text-gray-500">
+                    BIN: ${c.bin} · ${c.bank} · ${c.country || '—'} (${c.country_code || '—'})
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        document.getElementById('enrich-results').innerHTML = html;
+    }
+
+    // Lookup
+    async function lookupBins() {
+        const binsStr = document.getElementById('lookup-bins').value.trim();
+        if (!binsStr) return;
+        const bins = binsStr.split(',').map(b => b.trim()).filter(Boolean);
+
+        document.getElementById('lookup-results').innerHTML = '<div class="text-center py-12"><svg class="spinner inline w-6 h-6 accent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="60" stroke-dashoffset="20"/></svg></div>';
+
+        const data = await api('/api/lookup', { bins });
+
+        let html = '<div class="space-y-3">';
+        data.results.forEach(r => {
+            const flag = getFlag(r.country_code || '??');
+            html += `
+            <div class="bg-tertiary rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-white font-mono font-bold">${r.bin}</span>
+                    <span class="badge badge-live">${r.scheme || r.type || '—'}</span>
+                </div>
+                <div class="text-sm space-y-1">
+                    <div>🏦 ${r.bank || 'Unknown'}</div>
+                    <div>${flag} ${r.country || 'Unknown'} (${r.country_code || '??'})</div>
+                    <div>💳 ${r.brand || r.type || 'Unknown'} · ${r.type || '—'}</div>
+                    ${r.bank_city ? `<div>📍 ${r.bank_city}</div>` : ''}
+                    ${r.bank_url ? `<div>🔗 ${r.bank_url}</div>` : ''}
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        document.getElementById('lookup-results').innerHTML = html;
+    }
+
+    // Format
+    async function formatCards() {
+        const input = document.getElementById('format-input').value.trim();
+        if (!input) return;
+        const cards = input.split('\n').map(l => l.trim()).filter(Boolean);
+        const site = document.getElementById('format-site').value;
+
+        document.getElementById('format-results').innerHTML = '<div class="text-center py-12"><svg class="spinner inline w-6 h-6 accent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="60" stroke-dashoffset="20"/></svg></div>';
+
+        const data = await api('/api/format', { cards, site });
+        lastFormatCards = data.formatted;
+
+        let html = `<div class="mb-3 text-xs text-gray-500">${data.count} cards formatted for ${site}</div>`;
+        html += '<div class="space-y-3 max-h-[500px] overflow-y-auto">';
+        
+        data.formatted.forEach((f, i) => {
+            html += `<div class="bg-tertiary rounded-lg p-3"><pre class="text-xs text-gray-300 overflow-x-auto">${JSON.stringify(f, null, 2)}</pre></div>`;
+        });
+        html += '</div>';
+        document.getElementById('format-results').innerHTML = html;
+    }
+
+    // Tracker
+    async function loadTracker() {
+        try {
+            const [stats, recs] = await Promise.all([api('/api/stats'), api('/api/recommend')]);
+            
+            let statsHtml = '<div class="grid grid-cols-2 gap-3">';
+            statsHtml += `<div class="bg-tertiary rounded-lg p-3 text-center"><div class="text-2xl font-bold text-white">${stats.total_checked}</div><div class="text-xs text-gray-400">Total Checked</div></div>`;
+            statsHtml += `<div class="bg-tertiary rounded-lg p-3 text-center"><div class="text-2xl font-bold text-green-400">${stats.live}</div><div class="text-xs text-gray-400">Live</div></div>`;
+            statsHtml += `<div class="bg-tertiary rounded-lg p-3 text-center"><div class="text-2xl font-bold text-red-400">${stats.die}</div><div class="text-xs text-gray-400">Die</div></div>`;
+            statsHtml += `<div class="bg-tertiary rounded-lg p-3 text-center"><div class="text-2xl font-bold text-yellow-400">${stats.overall_live_rate}</div><div class="text-xs text-gray-400">Live Rate</div></div>`;
+            statsHtml += '</div>';
+            document.getElementById('tracker-stats').innerHTML = statsHtml;
+
+            if (recs.recommendations && recs.recommendations.length) {
+                let recHtml = '<div class="space-y-2">';
+                recs.recommendations.forEach(r => {
+                    recHtml += `<div class="bg-tertiary rounded-lg p-3">
+                        <div class="flex justify-between"><span class="text-white font-mono">${r.bin}</span><span class="text-green-400 font-bold">${r.live_rate}</span></div>
+                        <div class="text-xs text-gray-400 mt-1">${r.bank} · ${r.country} · ${r.total_checked} checked</div>
+                    </div>`;
+                });
+                recHtml += '</div>';
+                document.getElementById('tracker-recs').innerHTML = recHtml;
+            }
+        } catch(e) {
+            document.getElementById('tracker-stats').innerHTML = '<div class="text-red-400">Error loading stats</div>';
+        }
+    }
+
+    // Copy helpers
+    function copyPipe() {
+        if (!lastGenCards.length) return;
+        const text = lastGenCards.map(c => {
+            const [m, y] = c.expiry.split('/');
+            return `${c.raw_number}|${m}|${y}|${c.cvv}`;
+        }).join('\n');
+        copyToClipboard(text, 'copy-pipe-btn');
+    }
+
+    function copyJSON() {
+        if (!lastGenCards.length) return;
+        copyToClipboard(JSON.stringify(lastGenCards, null, 2), 'copy-json-btn');
+    }
+
+    function copyEnriched() {
+        if (!lastEnrichCards.length) return;
+        const text = lastEnrichCards.map(c => {
+            if (c.error) return '';
+            const exp = c.expiry || '12/2028';
+            const [m, y] = exp.split('/');
+            return `${c.raw_number}|${m}|${y}|${c.cvv || '000'}`;
+        }).filter(Boolean).join('\n');
+        copyToClipboard(text, 'copy-enrich-btn');
+    }
+
+    function copyFormatted() {
+        if (!lastFormatCards.length) return;
+        copyToClipboard(JSON.stringify(lastFormatCards, null, 2), 'copy-format-btn');
+    }
+
+    function copyToClipboard(text, btnId) {
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById(btnId);
+            btn.textContent = '✅ Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = btn.getAttribute('data-original') || '📋 Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        });
+    }
+
+    // Flag helper
+    function getFlag(cc) {
+        const flags = {'US':'🇺🇸','UK':'🇬🇧','GB':'🇬🇧','ID':'🇮🇩','JP':'🇯🇵','KR':'🇰🇷','DE':'🇩🇪','FR':'🇫🇷','AU':'🇦🇺','CN':'🇨🇳','BR':'🇧🇷','IN':'🇮🇳','ES':'🇪🇸','IT':'🇮🇹','NL':'🇳🇱','CA':'🇨🇦','SG':'🇸🇬','MY':'🇲🇾','TH':'🇹🇭'};
+        return flags[cc?.toUpperCase()] || '🏳️';
+    }
+
+    // Init
+    document.querySelectorAll('.copy-btn').forEach(btn => btn.setAttribute('data-original', btn.textContent));
+    </script>
+</body>
+</html>
