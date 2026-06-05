@@ -56,14 +56,71 @@
     <main class="max-w-6xl mx-auto px-6 py-8">
         <!-- Tabs -->
         <div class="flex gap-1 mb-6 border-b border-gray-800">
-            <div class="tab active" data-tab="generate" onclick="switchTab('generate')">⚡ Generate</div>
+            <div class="tab active" data-tab="genlive" onclick="switchTab('genlive')">⚡ Generate + Live</div>
+            <div class="tab" data-tab="generate" onclick="switchTab('generate')">🔧 Generate Only</div>
             <div class="tab" data-tab="enrich" onclick="switchTab('enrich')">🔄 Enrich</div>
             <div class="tab" data-tab="lookup" onclick="switchTab('lookup')">🔍 BIN Lookup</div>
             <div class="tab" data-tab="format" onclick="switchTab('format')">🏪 Format</div>
             <div class="tab" data-tab="tracker" onclick="switchTab('tracker')">📊 Tracker</div>
         </div>
 
-        <!-- Generate Tab -->
+        <!-- Generate + Live Tab -->
+        <div id="tab-genlive" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Controls -->
+                <div class="bg-card rounded-xl p-6">
+                    <h2 class="text-white font-semibold mb-4">⚡ Generate + Auto-Check</h2>
+                    <p class="text-xs text-gray-400 mb-4">Generate cards → auto-check on chkr.cc → show only Live cards</p>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">How many cards to check</label>
+                            <input id="gl-count" type="number" value="25" min="1" max="200" class="w-full rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Custom BINs (comma-separated)</label>
+                            <input id="gl-bins" type="text" value="515000, 525000, 400344" class="w-full rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400 mb-1 block">Card Types</label>
+                            <select id="gl-types" multiple class="w-full rounded-lg px-3 py-2 text-sm h-20">
+                                <option value="visa" selected>Visa</option>
+                                <option value="mastercard" selected>Mastercard</option>
+                                <option value="amex">Amex</option>
+                                <option value="jcb">JCB</option>
+                                <option value="unionpay">UnionPay</option>
+                            </select>
+                        </div>
+                        <button id="gl-btn" onclick="generateAndCheck()" class="w-full accent-bg text-white rounded-lg py-2.5 font-medium text-sm hover:opacity-90 transition">
+                            ⚡ Generate + Check Live
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div class="lg:col-span-2 bg-card rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="text-white font-semibold">Live Cards</h2>
+                            <div id="gl-progress" class="text-xs text-gray-500 mt-1"></div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="copyLivePipe()" class="copy-btn" id="gl-copy-btn">📋 Copy Live Cards</button>
+                        </div>
+                    </div>
+                    <!-- Progress bar -->
+                    <div id="gl-progress-bar-wrap" class="hidden mb-4">
+                        <div class="w-full bg-gray-800 rounded-full h-2">
+                            <div id="gl-progress-bar" class="accent-bg h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="gl-results" class="text-sm text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Set BIN and count, then click Generate + Check</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generate Only Tab -->
         <div id="tab-generate" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Controls -->
@@ -231,6 +288,8 @@
         document.getElementById(`tab-${tab}`).classList.remove('hidden');
         if (tab === 'tracker') loadTracker();
     }
+    // Show genlive tab by default
+    document.getElementById('tab-generate').classList.add('hidden');
 
     // API calls
     async function api(url, body = null) {
@@ -448,6 +507,126 @@
 
     // Init
     document.querySelectorAll('.copy-btn').forEach(btn => btn.setAttribute('data-original', btn.textContent));
+
+    // ═══ Generate + Live Check ═══
+
+    let liveCards = []; // Store live cards for copy
+
+    async function generateAndCheck() {
+        const count = parseInt(document.getElementById('gl-count').value) || 25;
+        const binsStr = document.getElementById('gl-bins').value.trim();
+        const bins = binsStr ? binsStr.split(',').map(b => b.trim()).filter(Boolean) : null;
+        const typesSelect = document.getElementById('gl-types');
+        const types = Array.from(typesSelect.selectedOptions).map(o => o.value);
+        
+        const btn = document.getElementById('gl-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="spinner inline w-4 h-4 mr-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="60" stroke-dashoffset="20"/></svg> Generating...';
+        
+        // Step 1: Generate cards via API
+        const genData = await api('/api/generate', { count, bins, types: types.length ? types : null });
+        const allCards = genData.cards;
+        
+        document.getElementById('gl-results').innerHTML = '<div class="text-center py-8"><div class="text-gray-400 mb-2">Checking ' + allCards.length + ' cards on chkr.cc...</div><div class="text-xs text-gray-500">This may take ~' + Math.ceil(allCards.length * 1.5) + ' seconds</div></div>';
+        document.getElementById('gl-progress-bar-wrap').classList.remove('hidden');
+        
+        // Step 2: Check each card via chkr.cc API (from browser = no rate limit)
+        liveCards = [];
+        let dieCount = 0;
+        let unknownCount = 0;
+        let checkedCount = 0;
+        
+        for (let i = 0; i < allCards.length; i++) {
+            const c = allCards[i];
+            const pipeStr = `${c.raw_number}|${c.expiry.split('/')[0]}|${c.expiry.split('/')[1]}|${c.cvv}`;
+            
+            try {
+                const res = await fetch('https://api.chkr.cc/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: pipeStr })
+                });
+                const j = await res.json();
+                checkedCount++;
+                
+                if (j.code === 1) {
+                    // LIVE!
+                    liveCards.push({ ...c, pipe: pipeStr, gate: j.message || 'OK' });
+                } else if (j.code === 0) {
+                    dieCount++;
+                } else {
+                    unknownCount++;
+                }
+            } catch(e) {
+                checkedCount++;
+                unknownCount++;
+            }
+            
+            // Update progress
+            const pct = Math.round((checkedCount / allCards.length) * 100);
+            document.getElementById('gl-progress-bar').style.width = pct + '%';
+            document.getElementById('gl-progress').innerHTML = 
+                `Checked: ${checkedCount}/${allCards.length} | ` +
+                `<span class="text-green-400">Live: ${liveCards.length}</span> | ` +
+                `<span class="text-red-400">Die: ${dieCount}</span> | ` +
+                `<span class="text-yellow-400">Unknown: ${unknownCount}</span>`;
+            
+            // Update live cards display in real-time
+            if (liveCards.length > 0) {
+                renderLiveCards();
+            }
+            
+            // Small delay to avoid overwhelming
+            await new Promise(r => setTimeout(r, 1200));
+        }
+        
+        // Done!
+        btn.disabled = false;
+        btn.innerHTML = '⚡ Generate + Check Live';
+        document.getElementById('gl-progress-bar-wrap').classList.add('hidden');
+        
+        if (liveCards.length === 0) {
+            document.getElementById('gl-results').innerHTML = 
+                '<div class="text-center py-12">' +
+                '<div class="text-gray-400 mb-2">No Live cards found in this batch</div>' +
+                '<div class="text-xs text-gray-500">Try different BINs or increase count</div></div>';
+        } else {
+            document.getElementById('gl-progress').innerHTML += ' | ✅ Done!';
+            renderLiveCards();
+        }
+    }
+
+    function renderLiveCards() {
+        let html = '<div class="space-y-1 max-h-[500px] overflow-y-auto">';
+        liveCards.forEach((c, i) => {
+            const addr = c.billing_address || {};
+            const flag = getFlag(addr.country || 'US');
+            html += `
+            <div class="card-row rounded-lg border-l-2 border-green-500">
+                <div class="flex items-center justify-between">
+                    <code class="text-green-300 font-mono text-xs font-bold">${c.pipe}</code>
+                    <span class="badge badge-live">LIVE ✅</span>
+                </div>
+                <div class="mt-1 text-xs text-gray-400">
+                    ${flag} <span class="text-gray-300">${c.name}</span> · ${c.phone || '—'}
+                </div>
+                <div class="mt-0.5 text-xs text-gray-400">
+                    📍 ${addr.street || ''}, ${addr.city || ''} ${addr.state || ''} ${addr.zip || ''}
+                </div>
+                <div class="mt-0.5 text-xs text-gray-500">
+                    BIN: ${c.bin} · ${c.type} · ${addr.country || '—'} · Gate: ${c.gate || '—'}
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        document.getElementById('gl-results').innerHTML = html;
+    }
+
+    function copyLivePipe() {
+        if (!liveCards.length) return;
+        const text = liveCards.map(c => c.pipe).join('\n');
+        copyToClipboard(text, 'gl-copy-btn');
+    }
     </script>
 </body>
 </html>
