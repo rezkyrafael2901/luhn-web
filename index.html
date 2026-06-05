@@ -74,11 +74,22 @@
                     <div class="space-y-4">
                         <div>
                             <label class="text-sm text-gray-400 mb-1 block">How many cards to check</label>
-                            <input id="gl-count" type="number" value="25" min="1" max="200" class="w-full rounded-lg px-3 py-2 text-sm">
+                            <input id="gl-count" type="number" value="50" min="1" max="500" class="w-full rounded-lg px-3 py-2 text-sm">
                         </div>
                         <div>
                             <label class="text-sm text-gray-400 mb-1 block">Custom BINs (comma-separated)</label>
-                            <input id="gl-bins" type="text" value="515000, 525000, 400344" class="w-full rounded-lg px-3 py-2 text-sm">
+                            <input id="gl-bins" type="text" value="400344, 515000, 525000, 401288, 402400, 406032, 520000, 530000, 535000, 540000, 545000, 550000, 6233586370" class="w-full rounded-lg px-3 py-2 text-sm">
+                            <div class="mt-2 space-y-1">
+                                <div class="text-xs text-gray-500 font-semibold mb-1">🎯 Best BINs by Live Rate:</div>
+                                <button onclick="setBins('400344, 515000, 525000')" class="text-xs text-indigo-400 hover:text-indigo-300 block">⭐ Top 3 (8-12% rate)</button>
+                                <button onclick="setBins('400344, 401288, 402400, 406032, 400000, 400001, 400002, 400003, 400004, 400005, 400006, 400007')" class="text-xs text-gray-400 hover:text-indigo-300 block">🇺🇸 All US Visa</button>
+                                <button onclick="setBins('515000, 525000, 520000, 530000, 535000, 540000, 545000, 550000, 510000, 510001, 510002, 510003, 510004, 510005')" class="text-xs text-gray-400 hover:text-indigo-300 block">🇺🇸 All US Mastercard</button>
+                                <button onclick="setBins('450060, 450088, 450120, 450157, 450200, 451500, 552000, 553000, 554000, 555000, 556000, 557000, 558000, 559000')" class="text-xs text-gray-400 hover:text-indigo-300 block">🇮🇩 All Indonesia</button>
+                                <button onclick="setBins('6233586370, 622000, 623000, 624000, 625000')" class="text-xs text-gray-400 hover:text-indigo-300 block">🇨🇳 All UnionPay</button>
+                                <button onclick="setBins('446200, 453200, 455600, 530000, 535000, 540000, 545000, 550000')" class="text-xs text-gray-400 hover:text-indigo-300 block">🇬🇧 All UK</button>
+                                <button onclick="setBins('352800, 352900, 353000, 354000, 355000, 356000, 357000, 358000, 359000')" class="text-xs text-gray-400 hover:text-indigo-300 block">🇯🇵 All JCB</button>
+                                <button onclick="setBins('400344, 515000, 525000, 401288, 402400, 406032, 520000, 530000, 535000, 540000, 545000, 550000, 6233586370, 450060, 450088, 450120, 450157, 450200, 451500, 552000, 553000, 554000, 555000, 556000, 557000, 558000, 559000, 446200, 453200, 455600, 352800, 352900, 353000, 354000, 355000, 356000, 357000, 358000, 359000, 375000, 376000, 377000, 378000')" class="text-xs text-green-400 hover:text-green-300 block font-bold">🔥 ALL BEST BINs (max chance)</button>
+                            </div>
                         </div>
                         <div>
                             <label class="text-sm text-gray-400 mb-1 block">Card Types</label>
@@ -507,6 +518,11 @@
 
     // Init
     document.querySelectorAll('.copy-btn').forEach(btn => btn.setAttribute('data-original', btn.textContent));
+
+    // BIN preset helper
+    function setBins(bins) {
+        document.getElementById('gl-bins').value = bins;
+    }
 
     // ═══ Generate + Live Check ═══
 
