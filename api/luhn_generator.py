@@ -364,7 +364,9 @@ def detect_card_type(bin_number: str) -> str:
 # ONLINE BIN LOOKUP (binlist.net API - FREE)
 # ═══════════════════════════════════════════════
 
-BIN_CACHE_FILE = os.path.expanduser("~/.hermes/skills/luhn-generator/bin_cache.json")
+BIN_CACHE_FILE = os.environ.get("BIN_CACHE_FILE", os.path.join(os.path.dirname(__file__), "bin_cache.json"))
+if not os.path.exists(os.path.dirname(BIN_CACHE_FILE)):
+    BIN_CACHE_FILE = "/tmp/bin_cache.json"
 
 def _load_bin_cache() -> dict:
     """Load BIN cache from file."""
@@ -755,7 +757,7 @@ def generate_phone(country: str = "US") -> str:
 
 import sqlite3
 
-TRACKER_DB = os.path.expanduser("~/.hermes/skills/luhn-generator/live_tracker.db")
+TRACKER_DB = os.environ.get("TRACKER_DB", "/tmp/live_tracker.db")
 
 def _init_tracker_db():
     """Initialize the Live Card Tracker database."""

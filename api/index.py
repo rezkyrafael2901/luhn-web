@@ -1,11 +1,11 @@
-"""Luhn Generator Web API - FastAPI backend."""
+"""Luhn Generator Web API - FastAPI backend (Vercel-ready)."""
 import sys
 import os
 
-# Add the luhn-generator scripts to path
-sys.path.insert(0, os.path.expanduser("~/.hermes/skills/luhn-generator/scripts"))
+# Fix import path: luhn_generator.py is in same directory as this file
+sys.path.insert(0, os.path.dirname(__file__))
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,8 +18,7 @@ from luhn_generator import (
     format_card, FORMATTERS, lookup_bin_online, lookup_bin,
     batch_lookup_bins, _detect_network, generate_name, generate_address,
     generate_phone, _resolve_country, is_valid_luhn, validate_card,
-    parse_card, BIN_DATABASE, BANK_BINS, cards_to_pipe,
-    get_tracker_stats, get_bin_recommendations, track_check
+    parse_card, BIN_DATABASE, BANK_BINS, cards_to_pipe
 )
 
 app = FastAPI(title="Luhn Generator Web", version="3.4")
@@ -47,10 +46,6 @@ class FormatRequest(BaseModel):
 
 class LookupRequest(BaseModel):
     bins: List[str]
-
-class TrackRequest(BaseModel):
-    card: str
-    status: str  # live, die, unknown
 
 # ─── API Routes ───────────────────────────────
 
@@ -126,18 +121,13 @@ def api_lookup(req: LookupRequest):
 @app.get("/api/lookup/{bin_number}")
 def api_lookup_single(bin_number: str):
     """Look up a single BIN."""
-    result = lookup_bin_online(bin_number, use_cache=True)
+    result = lookup_bin_online(bin_number, use_cache=False)
     return result
 
 @app.post("/api/validate")
-def api_validate(number: str):
+def api_validate_card(number: str):
     """Validate a card number."""
     return validate_card(number)
-
-@app.post("/api/parse")
-def api_parse(card: str):
-    """Parse a card number: extract BIN, bank, country."""
-    return parse_card(card)
 
 @app.get("/api/bins")
 def api_list_bins():
@@ -165,37 +155,12 @@ def api_list_types():
         })
     return {"types": types}
 
-@app.get("/api/stats")
-def api_stats():
-    """Get tracker statistics."""
-    return get_tracker_stats()
-
-@app.get("/api/recommend")
-def api_recommend():
-    """Get BIN recommendations."""
-    return {"recommendations": get_bin_recommendations(10)}
-
-@app.post("/api/track")
-def api_track(req: TrackRequest):
-    """Record a check result."""
-    clean = req.card.split("|")[0] if "|" in req.card else req.card
-    bin_prefix = clean[:6]
-    bin_info = lookup_bin(bin_prefix)
-    track_check(
-        card_number=clean, status=req.status.lower(),
-        bin_number=bin_prefix,
-        bank=bin_info.get("bank"), country=bin_info.get("country"),
-        network=_detect_network(clean)
-    )
-    return {"status": "recorded", "card": clean[-4:], "result": req.status}
-
 # ─── Serve Frontend ───────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 def index():
     try:
-        from api._html import INDEX_HTML
-        return HTMLResponse(INDEX_HTML)
-    except ImportError:
         from _html import INDEX_HTML
         return HTMLResponse(INDEX_HTML)
+    except ImportError:
+        return HTMLResponse("<h1>Luhn Generator v3.4</h1><p>Frontend loading error. Check api/_html.py</p>")
